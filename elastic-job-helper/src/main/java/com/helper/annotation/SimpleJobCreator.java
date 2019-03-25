@@ -1,5 +1,6 @@
 package com.helper.annotation;
 
+import com.helper.bean.ProxySimpleJob;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.aop.framework.autoproxy.AutoProxyUtils;
@@ -21,20 +22,25 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class SimpleJobCreator implements ApplicationContextAware {
     private final Log logger = LogFactory.getLog(getClass());
     private ConfigurableApplicationContext applicationContext;
+    private final Set<Class<?>> nonAnnotatedClasses =
+            Collections.newSetFromMap(new ConcurrentHashMap<Class<?>, Boolean>(64));
 
+    private final Map<String, ProxySimpleJob> proxySimpleJobMap = new ConcurrentHashMap<>(32);
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = (ConfigurableApplicationContext) applicationContext;
     }
 
     public void getSimpleJobs() {//模仿EventListenerMethodProcessor做的
-        //List<EventListenerFactory> factories = getEventListenerFactories();
         String[] beanNames = this.applicationContext.getBeanNamesForType(Object.class);
         for (String beanName : beanNames) {
             if (!ScopedProxyUtils.isScopedTarget(beanName)) {
@@ -72,45 +78,33 @@ public class SimpleJobCreator implements ApplicationContextAware {
 
     private void processBean(String beanName, Class<?> targetType) {
         if (!this.nonAnnotatedClasses.contains(targetType)) {
-            Map<Method, EventListener> annotatedMethods = null;
+            Map<Method, EasySimpleJob> annotatedMethods = null;
             try {
-                annotatedMethods = MethodIntrospector.selectMethods(targetType,(Method method)-> AnnotatedElementUtils.findMergedAnnotation(method, EventListener.class));
-
-            }
-            catch (Throwable ex) {
+                annotatedMethods = MethodIntrospector.selectMethods(targetType, (Method method) -> AnnotatedElementUtils.findMergedAnnotation(method, EasySimpleJob.class));
+            } catch (Throwable ex) {
                 // An unresolvable type in a method signature, probably from a lazy bean - let's ignore it.
                 if (logger.isDebugEnabled()) {
                     logger.debug("Could not resolve methods for bean with name '" + beanName + "'", ex);
                 }
             }
+
             if (CollectionUtils.isEmpty(annotatedMethods)) {
                 this.nonAnnotatedClasses.add(targetType);
                 if (logger.isTraceEnabled()) {
                     logger.trace("No @EventListener annotations found on bean class: " + targetType);
                 }
+                return;
             }
-            else {
-                // Non-empty set of methods
-                for (Method method : annotatedMethods.keySet()) {
-                    for (EventListenerFactory factory : factories) {
-                        if (factory.supportsMethod(method)) {
-                            Method methodToUse = AopUtils.selectInvocableMethod(
-                                    method, this.applicationContext.getType(beanName));
-                            ApplicationListener<?> applicationListener =
-                                    factory.createApplicationListener(beanName, targetType, methodToUse);
-                            if (applicationListener instanceof ApplicationListenerMethodAdapter) {
-                                ((ApplicationListenerMethodAdapter) applicationListener)
-                                        .init(this.applicationContext, this.evaluator);
-                            }
-                            this.applicationContext.addApplicationListener(applicationListener);
-                            break;
-                        }
-                    }
-                }
-                if (logger.isDebugEnabled()) {
-                    logger.debug(annotatedMethods.size() + " @EventListener methods processed on bean '" +
-                            beanName + "': " + annotatedMethods);
-                }
+            // Non-empty set of methods
+            for (Method method : annotatedMethods.keySet()) {
+                Method methodToUse = AopUtils.selectInvocableMethod(
+                        method, this.applicationContext.getType(beanName));
+                Object targetInstance = this.applicationContext.getBean(beanName);
+                proxySimpleJobMap.put("", new ProxySimpleJob(targetInstance, methodToUse));
+            }
+            if (logger.isDebugEnabled()) {
+                logger.debug(annotatedMethods.size() + " @EventListener methods processed on bean '" +
+                        beanName + "': " + annotatedMethods);
             }
         }
     }
