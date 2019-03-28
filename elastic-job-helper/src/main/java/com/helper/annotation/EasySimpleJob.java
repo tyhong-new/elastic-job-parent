@@ -11,6 +11,10 @@ public @interface EasySimpleJob {
 
     String cron();
 
+    /**
+     * 作业分片总数
+     * @return
+     */
     int shardingTotalCount() default 1;
 
     String shardingItemParameters() default "";
@@ -40,5 +44,7 @@ public @interface EasySimpleJob {
     int reconcileIntervalMinutes() default 10;
 
     String eventTraceRdbDataSource() default "";
+
+    boolean local() default false;
 }
 

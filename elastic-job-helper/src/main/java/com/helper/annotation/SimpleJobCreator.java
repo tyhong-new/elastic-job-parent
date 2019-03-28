@@ -2,6 +2,8 @@ package com.helper.annotation;
 
 import com.dangdang.ddframe.job.config.JobCoreConfiguration;
 import com.dangdang.ddframe.job.config.simple.SimpleJobConfiguration;
+import com.dangdang.ddframe.job.event.JobEventConfiguration;
+import com.dangdang.ddframe.job.event.rdb.JobEventRdbConfiguration;
 import com.dangdang.ddframe.job.lite.config.LiteJobConfiguration;
 import com.dangdang.ddframe.job.lite.spring.api.SpringJobScheduler;
 import com.dangdang.ddframe.job.reg.base.CoordinatorRegistryCenter;
@@ -61,6 +63,7 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
 
     public void getSimpleJobs() {//模仿EventListenerMethodProcessor做的
         String[] beanNames = this.applicationContext.getBeanNamesForType(Object.class);
+        JobEventRdbConfiguration jobEventRdbConfiguration = this.applicationContext.getBean(JobEventRdbConfiguration.class);
         for (String beanName : beanNames) {
             if (!ScopedProxyUtils.isScopedTarget(beanName)) {
                 Class<?> type = null;
@@ -85,7 +88,7 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
                         }
                     }
                     try {
-                        processBean(beanName, type);
+                        processBean(beanName, type, jobEventRdbConfiguration);
                     } catch (Throwable ex) {
                         throw new BeanInitializationException("Failed to process @EventListener " +
                                 "annotation on bean with name '" + beanName + "'", ex);
@@ -95,7 +98,7 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
         }
     }
 
-    private void processBean(String beanName, Class<?> targetType) {
+    private void processBean(String beanName, Class<?> targetType, JobEventRdbConfiguration jobEventRdbConfiguration) {
         if (!this.nonAnnotatedClasses.contains(targetType)) {
             Map<Method, EasySimpleJob> annotatedMethods = null;
             try {
@@ -122,7 +125,11 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
                 String name = getName(beanName, methodToUse);
                 proxySimpleJobMap.put(name, new ProxySimpleJob(targetInstance, method));
                 CoordinatorRegistryCenter coordinatorRegistryCenter = this.applicationContext.getBean(CoordinatorRegistryCenter.class);
-                new SpringJobScheduler(proxySimpleJobMap.get(name), coordinatorRegistryCenter, getJobConfig(name, methodToUse.getAnnotation(EasySimpleJob.class))).init();
+                if (jobEventRdbConfiguration != null && jobEventRdbConfiguration.getDataSource() != null) {
+                    new SpringJobScheduler(proxySimpleJobMap.get(name), coordinatorRegistryCenter, getJobConfig(name, methodToUse.getAnnotation(EasySimpleJob.class)), jobEventRdbConfiguration).init();
+                } else {
+                    new SpringJobScheduler(proxySimpleJobMap.get(name), coordinatorRegistryCenter, getJobConfig(name, methodToUse.getAnnotation(EasySimpleJob.class))).init();
+                }
             }
             if (logger.isDebugEnabled()) {
                 logger.debug(annotatedMethods.size() + " @EventListener methods processed on bean '" +
