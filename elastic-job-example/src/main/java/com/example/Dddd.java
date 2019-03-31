@@ -11,4 +11,5 @@ public class Dddd {
         System.out.println(shardingContext.getJobName());
         System.out.println("avoid:" + System.currentTimeMillis());
     }
+
 }

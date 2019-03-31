@@ -126,9 +126,9 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
                 proxySimpleJobMap.put(name, new ProxySimpleJob(targetInstance, method));
                 CoordinatorRegistryCenter coordinatorRegistryCenter = this.applicationContext.getBean(CoordinatorRegistryCenter.class);
                 if (jobEventRdbConfiguration != null && jobEventRdbConfiguration.getDataSource() != null) {
-                    new SpringJobScheduler(proxySimpleJobMap.get(name), coordinatorRegistryCenter, getJobConfig(name, methodToUse.getAnnotation(EasySimpleJob.class)), jobEventRdbConfiguration).init();
+                    new SpringJobScheduler(proxySimpleJobMap.get(name), coordinatorRegistryCenter, getJobConfig(name, methodToUse.getAnnotation(EasySimpleJob.class),methodToUse.getAnnotation(LocalJob.class)), jobEventRdbConfiguration).init();
                 } else {
-                    new SpringJobScheduler(proxySimpleJobMap.get(name), coordinatorRegistryCenter, getJobConfig(name, methodToUse.getAnnotation(EasySimpleJob.class))).init();
+                    new SpringJobScheduler(proxySimpleJobMap.get(name), coordinatorRegistryCenter, getJobConfig(name, methodToUse.getAnnotation(EasySimpleJob.class),methodToUse.getAnnotation(LocalJob.class))).init();
                 }
             }
             if (logger.isDebugEnabled()) {
@@ -138,7 +138,7 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
         }
     }
 
-    private LiteJobConfiguration getJobConfig(String name, EasySimpleJob easySimpleJob) {
+    private LiteJobConfiguration getJobConfig(String name, EasySimpleJob easySimpleJob,LocalJob localJob) {
         // 定义作业核心配置
         JobCoreConfiguration simpleCoreConfig = JobCoreConfiguration.newBuilder(name, easySimpleJob.cron(), easySimpleJob.shardingTotalCount())
                 .description(easySimpleJob.description()).failover(easySimpleJob.failover()).jobParameter(easySimpleJob.jobParameter())
@@ -146,9 +146,10 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
         applicationContext.getBeanFactory().registerSingleton(name, proxySimpleJobMap.get(name));
         // 定义SIMPLE类型配置
         SimpleJobConfiguration simpleJobConfig = new SimpleJobConfiguration(simpleCoreConfig, name);
+        String jobShardingStrategyClass=localJob==null?easySimpleJob.jobShardingStrategyClass():LocalJob.class.getCanonicalName();
         // 定义Lite作业根配置
         LiteJobConfiguration simpleJobRootConfig = LiteJobConfiguration.newBuilder(simpleJobConfig).jobShardingStrategyClass(easySimpleJob.jobShardingStrategyClass())
-                .maxTimeDiffSeconds(easySimpleJob.maxTimeDiffSeconds()).jobShardingStrategyClass(easySimpleJob.jobShardingStrategyClass())
+                .maxTimeDiffSeconds(easySimpleJob.maxTimeDiffSeconds()).jobShardingStrategyClass(jobShardingStrategyClass)
                 .monitorExecution(easySimpleJob.monitorExecution()).monitorPort(easySimpleJob.monitorPort()).reconcileIntervalMinutes(easySimpleJob.reconcileIntervalMinutes()).build();
         return simpleJobRootConfig;
     }

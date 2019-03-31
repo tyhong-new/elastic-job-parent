@@ -34,7 +34,9 @@ public class EasyJobEventConfiguration implements EnvironmentAware {
         DruidDataSource dataSource = new DruidDataSource();
         dataSource.setUrl(url);
         //dataSource.setDriverClassName("com.mysql.jdbc.Driver");
-        dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        String driverClass=getString("easy.datasource.driver-class-name", getString("spring.datasource.driver-class-name", "com.mysql.jdbc.Driver"));
+        //dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        dataSource.setDriverClassName(driverClass);
         String username = getString("easy.datasource.username", getString("spring.datasource.username", ""));
         String password = getString("easy.datasource.password", getString("spring.datasource.password", ""));
         if (StringUtils.isNoneBlank(username)) {
