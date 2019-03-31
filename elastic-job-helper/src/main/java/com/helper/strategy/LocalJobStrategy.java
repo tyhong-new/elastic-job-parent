@@ -6,6 +6,7 @@ import com.dangdang.ddframe.job.lite.api.strategy.JobShardingStrategy;
 import com.dangdang.ddframe.job.lite.config.LiteJobConfiguration;
 import com.dangdang.ddframe.job.lite.internal.config.ConfigurationService;
 import com.dangdang.ddframe.job.reg.base.CoordinatorRegistryCenter;
+import com.helper.annotation.SimpleJobCreator;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
@@ -15,16 +16,12 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 
 @Component
-public class LocalJobStrategy implements JobShardingStrategy , ApplicationContextAware {
+public class LocalJobStrategy implements JobShardingStrategy  {
 
 
     private volatile CoordinatorRegistryCenter coordinatorRegistryCenter;
-    private ApplicationContext applicationContext;
+    private static final Object o=new Object();
 
-    @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        this.applicationContext=applicationContext;
-    }
 
     @Override
     public Map<JobInstance, List<Integer>> sharding(List<JobInstance> jobInstances, String jobName, int shardingTotalCount) {
@@ -44,8 +41,8 @@ public class LocalJobStrategy implements JobShardingStrategy , ApplicationContex
     }
     private ConfigurationService getConfigurationService(String jobName){
         if (coordinatorRegistryCenter == null) {
-            synchronized (coordinatorRegistryCenter) {
-                coordinatorRegistryCenter = applicationContext.getBean(CoordinatorRegistryCenter.class);
+            synchronized (o) {
+                coordinatorRegistryCenter = SimpleJobCreator.getApplicationContext().getBean(CoordinatorRegistryCenter.class);
             }
         }
         return new ConfigurationService(coordinatorRegistryCenter,jobName);
@@ -55,7 +52,7 @@ public class LocalJobStrategy implements JobShardingStrategy , ApplicationContex
         LiteJobConfiguration jobConfiguration = configurationService.load(true);
         JobCoreConfiguration jobCoreConfiguration=jobConfiguration.getTypeConfig().getCoreConfig();
         try {
-            FieldUtils.writeField(jobCoreConfiguration,"shardingTotalCount",shardingTotalCount);
+            FieldUtils.writeField(jobCoreConfiguration,"shardingTotalCount",shardingTotalCount,true);
         } catch (IllegalAccessException e) {
             e.printStackTrace();
         }

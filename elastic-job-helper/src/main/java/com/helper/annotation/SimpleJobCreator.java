@@ -11,6 +11,7 @@ import com.dangdang.ddframe.job.reg.zookeeper.ZookeeperConfiguration;
 import com.dangdang.ddframe.job.reg.zookeeper.ZookeeperRegistryCenter;
 import com.helper.bean.ProxySimpleJob;
 import com.helper.config.ZookeeperEasyConfig;
+import com.helper.strategy.LocalJobStrategy;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.aop.framework.autoproxy.AutoProxyUtils;
@@ -45,7 +46,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class SimpleJobCreator implements ApplicationContextAware, InitializingBean {
     private final Log logger = LogFactory.getLog(getClass());
-    private ConfigurableApplicationContext applicationContext;
+    private static ConfigurableApplicationContext applicationContext;
     private final Set<Class<?>> nonAnnotatedClasses =
             Collections.newSetFromMap(new ConcurrentHashMap<Class<?>, Boolean>(64));
 
@@ -53,7 +54,11 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        this.applicationContext = (ConfigurableApplicationContext) applicationContext;
+        SimpleJobCreator.applicationContext = (ConfigurableApplicationContext) applicationContext;
+    }
+
+    public static ApplicationContext getApplicationContext(){
+        return applicationContext;
     }
 
     @Override
@@ -146,7 +151,7 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
         applicationContext.getBeanFactory().registerSingleton(name, proxySimpleJobMap.get(name));
         // 定义SIMPLE类型配置
         SimpleJobConfiguration simpleJobConfig = new SimpleJobConfiguration(simpleCoreConfig, name);
-        String jobShardingStrategyClass=localJob==null?easySimpleJob.jobShardingStrategyClass():LocalJob.class.getCanonicalName();
+        String jobShardingStrategyClass=localJob==null?easySimpleJob.jobShardingStrategyClass():LocalJobStrategy.class.getCanonicalName();
         // 定义Lite作业根配置
         LiteJobConfiguration simpleJobRootConfig = LiteJobConfiguration.newBuilder(simpleJobConfig).jobShardingStrategyClass(easySimpleJob.jobShardingStrategyClass())
                 .maxTimeDiffSeconds(easySimpleJob.maxTimeDiffSeconds()).jobShardingStrategyClass(jobShardingStrategyClass)
