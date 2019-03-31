@@ -14,9 +14,12 @@ public class LocalJobStrategy implements JobShardingStrategy {
             return Collections.emptyMap();
         }
         Map<JobInstance, List<Integer>> result = new LinkedHashMap<>(shardingTotalCount, 1);
-        List<Integer> list = new ArrayList<>(1);
-        list.add(0);
-        jobInstances.forEach(e -> result.put(e, list));
+        int j=0;
+        for (JobInstance jobInstance : jobInstances) {
+            List<Integer> list = new ArrayList<>(1);
+            list.add(j++);
+            result.put(jobInstance, list);
+        }
         return result;
     }
 }
