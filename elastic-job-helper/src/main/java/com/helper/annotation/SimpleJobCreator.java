@@ -167,12 +167,12 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
         // 定义SIMPLE类型配置
         SimpleJobConfiguration simpleJobConfig = new SimpleJobConfiguration(simpleCoreConfig, name);
         //处理localJob
-        String jobShardingStrategyClass = localJob == null ? easySimpleJob.jobShardingStrategyClass() : LocalJobStrategy.class.getCanonicalName();
+        String jobShardingStrategyClass = localJob == null ? StringUtils.isBlank(easySimpleJob.jobShardingStrategyClass())?null:easySimpleJob.jobShardingStrategyClass() : LocalJobStrategy.class.getCanonicalName();
         // 定义Lite作业根配置
         LiteJobConfiguration simpleJobRootConfig = LiteJobConfiguration.newBuilder(simpleJobConfig).jobShardingStrategyClass(easySimpleJob.jobShardingStrategyClass())
                 .maxTimeDiffSeconds(easySimpleJob.maxTimeDiffSeconds()).jobShardingStrategyClass(jobShardingStrategyClass)
                 .monitorExecution(easySimpleJob.monitorExecution()).monitorPort(easySimpleJob.monitorPort())
-                .reconcileIntervalMinutes(easySimpleJob.reconcileIntervalMinutes()).build();
+                .reconcileIntervalMinutes(easySimpleJob.reconcileIntervalMinutes()).overwrite(easySimpleJob.overwrite()).build();
         return simpleJobRootConfig;
     }
 

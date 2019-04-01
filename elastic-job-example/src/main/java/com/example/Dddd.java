@@ -7,16 +7,16 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class Dddd {
-    @EasySimpleJob(cron = "0/5 * * * * ?")
+    @EasySimpleJob(cron = "0/5 * * * * ?",shardingTotalCount = 2)
     public void aVoid(ShardingContext shardingContext){
-        System.out.println(shardingContext.getJobName());
+        System.out.println(shardingContext.getJobName()+shardingContext.getShardingItem());
         System.out.println("avoid:" + System.currentTimeMillis());
     }
     /*@EasySimpleJob(cron = "0/5 * * * * ?")
     public void dVoid(int a){
         System.out.println("avoid:" + System.currentTimeMillis());
     }*/
-    @EasySimpleJob(cron = "0/5 * * * * ?")
+   // @EasySimpleJob(cron = "0/5 * * * * ?")
     @LocalJob
     public void bVoid(ShardingContext shardingContext){
         System.out.println(shardingContext.getJobName());

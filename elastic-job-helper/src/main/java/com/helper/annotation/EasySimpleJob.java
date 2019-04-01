@@ -12,6 +12,12 @@ public @interface EasySimpleJob {
     String cron();
 
     /**
+     * 本地配置是否可覆盖注册中心配置
+     * 如果可覆盖，每次启动作业都以本地配置为准
+     * @return
+     */
+    boolean overwrite() default true;
+    /**
      * 作业分片总数
      * @return
      */
