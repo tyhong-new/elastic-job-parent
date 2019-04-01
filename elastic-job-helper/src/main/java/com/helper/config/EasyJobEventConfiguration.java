@@ -2,43 +2,36 @@ package com.helper.config;
 
 import com.alibaba.druid.pool.DruidDataSource;
 import com.dangdang.ddframe.job.event.rdb.JobEventRdbConfiguration;
+import com.helper.util.ApplicationContextHolder;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.context.EnvironmentAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
+import org.springframework.context.annotation.DependsOn;
 
 import javax.sql.DataSource;
 
 @Configuration
-public class EasyJobEventConfiguration implements EnvironmentAware {
-
-    private Environment environment;
-
-    @Override
-    public void setEnvironment(Environment environment) {
-        this.environment = environment;
-    }
+public class EasyJobEventConfiguration {
 
     @Bean
+    @DependsOn("applicationContextHolder")
     public JobEventRdbConfiguration getJobEventConfiguration() {
         JobEventRdbConfiguration jobEventRdbConfig = new JobEventRdbConfiguration(getDruidDataSource());
         return jobEventRdbConfig;
     }
 
     private DataSource getDruidDataSource() {
-        String url = getString("easy.datasource.url", getString("spring.datasource.url", ""));
+        String url = ApplicationContextHolder.getStringProperty("easy.datasource.url", ApplicationContextHolder.getStringProperty("spring.datasource.url", ""));
         if (StringUtils.isBlank(url)) {
             return null;
         }
         DruidDataSource dataSource = new DruidDataSource();
         dataSource.setUrl(url);
-        //dataSource.setDriverClassName("com.mysql.jdbc.Driver");
-        String driverClass=getString("easy.datasource.driver-class-name", getString("spring.datasource.driver-class-name", "com.mysql.jdbc.Driver"));
         //dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        String driverClass = ApplicationContextHolder.getStringProperty("easy.datasource.driver-class-name", ApplicationContextHolder.getStringProperty("spring.datasource.driver-class-name", EasyDefaultConfigConstants.DRIVER_CLASS_NAME));
         dataSource.setDriverClassName(driverClass);
-        String username = getString("easy.datasource.username", getString("spring.datasource.username", ""));
-        String password = getString("easy.datasource.password", getString("spring.datasource.password", ""));
+        String username = ApplicationContextHolder.getStringProperty("easy.datasource.username", ApplicationContextHolder.getStringProperty("spring.datasource.username", ""));
+        String password = ApplicationContextHolder.getStringProperty("easy.datasource.password", ApplicationContextHolder.getStringProperty("spring.datasource.password", ""));
         if (StringUtils.isNoneBlank(username)) {
             dataSource.setUsername(username);
         }
@@ -48,7 +41,4 @@ public class EasyJobEventConfiguration implements EnvironmentAware {
         return dataSource;
     }
 
-    private String getString(String name, String defaultValue) {
-        return environment.getProperty(name, String.class, defaultValue);
-    }
 }

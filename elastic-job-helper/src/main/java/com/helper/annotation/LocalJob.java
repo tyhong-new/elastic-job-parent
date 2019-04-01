@@ -3,7 +3,7 @@ package com.helper.annotation;
 import java.lang.annotation.*;
 
 /**
- * Created by tyhong on 2019/3/31.
+ * 本地job，每个实例都会运行；可以使用在清理本地缓存等地方
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

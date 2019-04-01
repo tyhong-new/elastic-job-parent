@@ -41,8 +41,7 @@ public final class EasyDefaultConfigConstants {
      */
     public static final String ZOO_DIGEST = null;
 
-
-
+    public static final String DRIVER_CLASS_NAME = "com.mysql.jdbc.Driver";
 
     private EasyDefaultConfigConstants() {
     }

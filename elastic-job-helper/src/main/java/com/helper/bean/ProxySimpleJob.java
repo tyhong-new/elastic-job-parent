@@ -15,6 +15,12 @@ public class ProxySimpleJob implements SimpleJob {
     private Method method;
 
     public ProxySimpleJob(Object targetInstance, Method method) {
+        if (method.getParameterCount() > 1) {
+            throw new RuntimeException(method.getDeclaringClass() + "." + method.getName() + "参数最多只能一个");
+        }
+        if (method.getParameterCount() == 1 && !method.getParameterTypes()[0].isAssignableFrom(ShardingContext.class)) {
+            throw new RuntimeException(method.getDeclaringClass() + "." + method.getName() + "参数最多只能一个,且只能是ShardingContext");
+        }
         this.method = method;
         this.targetInstance = targetInstance;
     }

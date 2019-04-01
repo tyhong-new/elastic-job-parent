@@ -2,16 +2,14 @@ package com.helper.annotation;
 
 import com.dangdang.ddframe.job.config.JobCoreConfiguration;
 import com.dangdang.ddframe.job.config.simple.SimpleJobConfiguration;
-import com.dangdang.ddframe.job.event.JobEventConfiguration;
 import com.dangdang.ddframe.job.event.rdb.JobEventRdbConfiguration;
+import com.dangdang.ddframe.job.lite.api.listener.ElasticJobListener;
 import com.dangdang.ddframe.job.lite.config.LiteJobConfiguration;
 import com.dangdang.ddframe.job.lite.spring.api.SpringJobScheduler;
 import com.dangdang.ddframe.job.reg.base.CoordinatorRegistryCenter;
-import com.dangdang.ddframe.job.reg.zookeeper.ZookeeperConfiguration;
-import com.dangdang.ddframe.job.reg.zookeeper.ZookeeperRegistryCenter;
 import com.helper.bean.ProxySimpleJob;
-import com.helper.config.ZookeeperEasyConfig;
 import com.helper.strategy.LocalJobStrategy;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.aop.framework.autoproxy.AutoProxyUtils;
@@ -21,54 +19,40 @@ import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanInitializationException;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.config.BeanDefinition;
-import org.springframework.beans.factory.support.BeanDefinitionBuilder;
-import org.springframework.beans.factory.support.DefaultListableBeanFactory;
-import org.springframework.beans.factory.support.GenericBeanDefinition;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
-import org.springframework.context.ApplicationListener;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.event.ApplicationListenerMethodAdapter;
-import org.springframework.context.event.EventListener;
-import org.springframework.context.event.EventListenerFactory;
 import org.springframework.core.MethodIntrospector;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import java.lang.reflect.Method;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class SimpleJobCreator implements ApplicationContextAware, InitializingBean {
-    private final Log logger = LogFactory.getLog(getClass());
-    private static ConfigurableApplicationContext applicationContext;
-    private final Set<Class<?>> nonAnnotatedClasses =
-            Collections.newSetFromMap(new ConcurrentHashMap<Class<?>, Boolean>(64));
 
-    private final Map<String, ProxySimpleJob> proxySimpleJobMap = new ConcurrentHashMap<>(32);
+    private final Log logger = LogFactory.getLog(getClass());
+    private ConfigurableApplicationContext applicationContext;
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        SimpleJobCreator.applicationContext = (ConfigurableApplicationContext) applicationContext;
-    }
-
-    public static ApplicationContext getApplicationContext(){
-        return applicationContext;
+        this.applicationContext = (ConfigurableApplicationContext) applicationContext;
     }
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        getSimpleJobs();
+        createSimpleJobs();
     }
 
-    public void getSimpleJobs() {//模仿EventListenerMethodProcessor做的
+    private void createSimpleJobs() {//模仿EventListenerMethodProcessor做的
         String[] beanNames = this.applicationContext.getBeanNamesForType(Object.class);
         JobEventRdbConfiguration jobEventRdbConfiguration = this.applicationContext.getBean(JobEventRdbConfiguration.class);
+        Set<Class<?>> nonAnnotatedClasses = Collections.newSetFromMap(new ConcurrentHashMap<Class<?>, Boolean>(64));
+        Set<String> jobNameSet = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>(64));
+        List<SpringJobScheduler> schedulers = new LinkedList<>();
         for (String beanName : beanNames) {
             if (!ScopedProxyUtils.isScopedTarget(beanName)) {
                 Class<?> type = null;
@@ -93,7 +77,7 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
                         }
                     }
                     try {
-                        processBean(beanName, type, jobEventRdbConfiguration);
+                        processBean(beanName, type, jobEventRdbConfiguration, nonAnnotatedClasses, schedulers, jobNameSet);
                     } catch (Throwable ex) {
                         throw new BeanInitializationException("Failed to process @EventListener " +
                                 "annotation on bean with name '" + beanName + "'", ex);
@@ -101,69 +85,90 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
                 }
             }
         }
+        schedulers.forEach(e -> e.init());
     }
 
-    private void processBean(String beanName, Class<?> targetType, JobEventRdbConfiguration jobEventRdbConfiguration) {
-        if (!this.nonAnnotatedClasses.contains(targetType)) {
-            Map<Method, EasySimpleJob> annotatedMethods = null;
-            try {
-                annotatedMethods = MethodIntrospector.selectMethods(targetType, (Method method) -> AnnotatedElementUtils.findMergedAnnotation(method, EasySimpleJob.class));
-            } catch (Throwable ex) {
-                // An unresolvable type in a method signature, probably from a lazy bean - let's ignore it.
-                if (logger.isDebugEnabled()) {
-                    logger.debug("Could not resolve methods for bean with name '" + beanName + "'", ex);
-                }
-            }
-
-            if (CollectionUtils.isEmpty(annotatedMethods)) {
-                this.nonAnnotatedClasses.add(targetType);
-                if (logger.isTraceEnabled()) {
-                    logger.trace("No @EventListener annotations found on bean class: " + targetType);
-                }
-                return;
-            }
-            // Non-empty set of methods
-            for (Method method : annotatedMethods.keySet()) {
-                Method methodToUse = AopUtils.selectInvocableMethod(
-                        method, this.applicationContext.getType(beanName));
-                Object targetInstance = this.applicationContext.getBean(beanName);
-                String name = getName(beanName, methodToUse);
-                proxySimpleJobMap.put(name, new ProxySimpleJob(targetInstance, method));
-                CoordinatorRegistryCenter coordinatorRegistryCenter = this.applicationContext.getBean(CoordinatorRegistryCenter.class);
-                if (jobEventRdbConfiguration != null && jobEventRdbConfiguration.getDataSource() != null) {
-                    new SpringJobScheduler(proxySimpleJobMap.get(name), coordinatorRegistryCenter, getJobConfig(name, methodToUse.getAnnotation(EasySimpleJob.class),methodToUse.getAnnotation(LocalJob.class)), jobEventRdbConfiguration).init();
-                } else {
-                    new SpringJobScheduler(proxySimpleJobMap.get(name), coordinatorRegistryCenter, getJobConfig(name, methodToUse.getAnnotation(EasySimpleJob.class),methodToUse.getAnnotation(LocalJob.class))).init();
-                }
-            }
+    private void processBean(String beanName, Class<?> targetType, JobEventRdbConfiguration jobEventRdbConfiguration, Set<Class<?>> nonAnnotatedClasses,
+                             List<SpringJobScheduler> schedulers, Set<String> jobNameSet) {
+        if (nonAnnotatedClasses.contains(targetType)) {
+            return;
+        }
+        Map<Method, EasySimpleJob> annotatedMethods = null;
+        try {
+            annotatedMethods = MethodIntrospector.selectMethods(targetType, (Method method) -> AnnotatedElementUtils.findMergedAnnotation(method, EasySimpleJob.class));
+        } catch (Throwable ex) {
+            // An unresolvable type in a method signature, probably from a lazy bean - let's ignore it.
             if (logger.isDebugEnabled()) {
-                logger.debug(annotatedMethods.size() + " @EventListener methods processed on bean '" +
-                        beanName + "': " + annotatedMethods);
+                logger.debug("Could not resolve methods for bean with name '" + beanName + "'", ex);
+            }
+        }
+
+        if (CollectionUtils.isEmpty(annotatedMethods)) {
+            nonAnnotatedClasses.add(targetType);
+            if (logger.isTraceEnabled()) {
+                logger.trace("No @EventListener annotations found on bean class: " + targetType);
+            }
+            return;
+        }
+        // Non-empty set of methods
+        for (Method method : annotatedMethods.keySet()) {
+            Method methodToUse = AopUtils.selectInvocableMethod(
+                    method, this.applicationContext.getType(beanName));
+
+            Object targetInstance = this.applicationContext.getBean(beanName);
+            EasySimpleJob easySimpleJob = methodToUse.getAnnotation(EasySimpleJob.class);
+            String name = getName(easySimpleJob.jobName(), beanName, methodToUse);
+            if (jobNameSet.contains(name)) {
+                throw new RuntimeException("job名字【" + name + "】重复");
+            }
+            jobNameSet.add(name);
+            ProxySimpleJob proxySimpleJob = new ProxySimpleJob(targetInstance, method);
+            applicationContext.getBeanFactory().registerSingleton(name, proxySimpleJob);
+
+            CoordinatorRegistryCenter coordinatorRegistryCenter = this.applicationContext.getBean(CoordinatorRegistryCenter.class);
+            Map<String, ElasticJobListener> listenerMap = this.applicationContext.getBeansOfType(ElasticJobListener.class);
+            ElasticJobListener[] listeners = new ElasticJobListener[listenerMap.size()];
+            listenerMap.values().toArray(listeners);
+
+            LiteJobConfiguration jobConfiguration = getJobConfig(name, easySimpleJob, methodToUse.getAnnotation(LocalJob.class));
+            if (jobEventRdbConfiguration != null && jobEventRdbConfiguration.getDataSource() != null) {
+                schedulers.add(new SpringJobScheduler(proxySimpleJob, coordinatorRegistryCenter, jobConfiguration, jobEventRdbConfiguration, listeners));
+            } else {
+                schedulers.add(new SpringJobScheduler(proxySimpleJob, coordinatorRegistryCenter, jobConfiguration, listeners));
             }
         }
     }
 
-    private LiteJobConfiguration getJobConfig(String name, EasySimpleJob easySimpleJob,LocalJob localJob) {
+    private LiteJobConfiguration getJobConfig(String name, EasySimpleJob easySimpleJob, LocalJob localJob) {
         // 定义作业核心配置
         JobCoreConfiguration simpleCoreConfig = JobCoreConfiguration.newBuilder(name, easySimpleJob.cron(), easySimpleJob.shardingTotalCount())
                 .description(easySimpleJob.description()).failover(easySimpleJob.failover()).jobParameter(easySimpleJob.jobParameter())
                 .misfire(easySimpleJob.misfire()).shardingItemParameters(easySimpleJob.shardingItemParameters()).build();
-        applicationContext.getBeanFactory().registerSingleton(name, proxySimpleJobMap.get(name));
         // 定义SIMPLE类型配置
         SimpleJobConfiguration simpleJobConfig = new SimpleJobConfiguration(simpleCoreConfig, name);
-        String jobShardingStrategyClass=localJob==null?easySimpleJob.jobShardingStrategyClass():LocalJobStrategy.class.getCanonicalName();
+        //处理localJob
+        String jobShardingStrategyClass = localJob == null ? easySimpleJob.jobShardingStrategyClass() : LocalJobStrategy.class.getCanonicalName();
         // 定义Lite作业根配置
         LiteJobConfiguration simpleJobRootConfig = LiteJobConfiguration.newBuilder(simpleJobConfig).jobShardingStrategyClass(easySimpleJob.jobShardingStrategyClass())
                 .maxTimeDiffSeconds(easySimpleJob.maxTimeDiffSeconds()).jobShardingStrategyClass(jobShardingStrategyClass)
-                .monitorExecution(easySimpleJob.monitorExecution()).monitorPort(easySimpleJob.monitorPort()).reconcileIntervalMinutes(easySimpleJob.reconcileIntervalMinutes()).build();
+                .monitorExecution(easySimpleJob.monitorExecution()).monitorPort(easySimpleJob.monitorPort())
+                .reconcileIntervalMinutes(easySimpleJob.reconcileIntervalMinutes()).build();
         return simpleJobRootConfig;
     }
 
-    private String getName(String beanName, Method method) {
-        if (method.getParameterCount() == 0) {
-            return String.format("SJ_%s_%s", beanName, method.getName());
+    private String getName(String jobName, String beanName, Method method) {
+        if (StringUtils.isBlank(jobName)) {
+            if (method.getParameterCount() == 0) {
+                return String.format("SJ_%s_%s", beanName, method.getName());
+            } else {
+                return String.format("PSJ_%s_%s", beanName, method.getName());
+            }
         } else {
-            return String.format("PSJ_%s_%s", beanName, method.getName());
+            if (method.getParameterCount() == 0) {
+                return String.format("SJ_%s", jobName);
+            } else {
+                return String.format("PSJ_%s", jobName);
+            }
         }
     }
 }
