@@ -31,6 +31,9 @@ import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 创建SimpleJobchedulersS，核心类
+ */
 @Component
 public class SimpleJobCreator implements ApplicationContextAware, InitializingBean {
 
@@ -49,9 +52,13 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
 
     private void createSimpleJobs() {//模仿EventListenerMethodProcessor做的
         String[] beanNames = this.applicationContext.getBeanNamesForType(Object.class);
+        //获取事件配置
         JobEventRdbConfiguration jobEventRdbConfiguration = this.applicationContext.getBean(JobEventRdbConfiguration.class);
+        //缓存没命中的
         Set<Class<?>> nonAnnotatedClasses = Collections.newSetFromMap(new ConcurrentHashMap<Class<?>, Boolean>(64));
+        //缓存jobName，避免出现名字一样的情况
         Set<String> jobNameSet = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>(64));
+        //先存着scheduler，避免创建到一半，报错后，一些任务还在跑
         List<SpringJobScheduler> schedulers = new LinkedList<>();
         for (String beanName : beanNames) {
             if (!ScopedProxyUtils.isScopedTarget(beanName)) {
@@ -117,19 +124,25 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
 
             Object targetInstance = this.applicationContext.getBean(beanName);
             EasySimpleJob easySimpleJob = methodToUse.getAnnotation(EasySimpleJob.class);
+            //处理名字
             String name = getName(easySimpleJob.jobName(), beanName, methodToUse);
             if (jobNameSet.contains(name)) {
                 throw new RuntimeException("job名字【" + name + "】重复");
             }
             jobNameSet.add(name);
+            //创建代理类
             ProxySimpleJob proxySimpleJob = new ProxySimpleJob(targetInstance, method);
             applicationContext.getBeanFactory().registerSingleton(name, proxySimpleJob);
 
+            //获取注册中心配置
             CoordinatorRegistryCenter coordinatorRegistryCenter = this.applicationContext.getBean(CoordinatorRegistryCenter.class);
+
+            //获取job监听器
             Map<String, ElasticJobListener> listenerMap = this.applicationContext.getBeansOfType(ElasticJobListener.class);
             ElasticJobListener[] listeners = new ElasticJobListener[listenerMap.size()];
             listenerMap.values().toArray(listeners);
 
+            //创建SpringJobScheduler
             LiteJobConfiguration jobConfiguration = getJobConfig(name, easySimpleJob, methodToUse.getAnnotation(LocalJob.class));
             if (jobEventRdbConfiguration != null && jobEventRdbConfiguration.getDataSource() != null) {
                 schedulers.add(new SpringJobScheduler(proxySimpleJob, coordinatorRegistryCenter, jobConfiguration, jobEventRdbConfiguration, listeners));
@@ -139,6 +152,13 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
         }
     }
 
+    /**
+     * 根据注解，创建job配置
+     * @param name
+     * @param easySimpleJob
+     * @param localJob
+     * @return
+     */
     private LiteJobConfiguration getJobConfig(String name, EasySimpleJob easySimpleJob, LocalJob localJob) {
         // 定义作业核心配置
         JobCoreConfiguration simpleCoreConfig = JobCoreConfiguration.newBuilder(name, easySimpleJob.cron(), easySimpleJob.shardingTotalCount())
@@ -156,6 +176,13 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
         return simpleJobRootConfig;
     }
 
+    /**
+     * 定义job的名字
+     * @param jobName
+     * @param beanName
+     * @param method
+     * @return
+     */
     private String getName(String jobName, String beanName, Method method) {
         if (StringUtils.isBlank(jobName)) {
             if (method.getParameterCount() == 0) {

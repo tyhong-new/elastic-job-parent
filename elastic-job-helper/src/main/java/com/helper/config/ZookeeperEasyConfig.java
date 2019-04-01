@@ -12,7 +12,9 @@ import org.springframework.core.env.Environment;
 
 import static com.helper.config.EasyDefaultConfigConstants.*;
 
-
+/**
+ * zookeeper注册中心
+ */
 @Configuration
 public class ZookeeperEasyConfig {
 

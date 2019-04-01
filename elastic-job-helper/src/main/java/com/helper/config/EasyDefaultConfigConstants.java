@@ -1,5 +1,8 @@
 package com.helper.config;
 
+/**
+ * 配置默认值
+ */
 public final class EasyDefaultConfigConstants {
 
     //ZookeeperConfiguration
@@ -41,6 +44,9 @@ public final class EasyDefaultConfigConstants {
      */
     public static final String ZOO_DIGEST = null;
 
+    /**
+     * mysql驱动类，因为8.0后的驱动类为com.mysql.cj.jdbc.Driver，所以这个参数为可配置项
+     */
     public static final String DRIVER_CLASS_NAME = "com.mysql.jdbc.Driver";
 
     private EasyDefaultConfigConstants() {

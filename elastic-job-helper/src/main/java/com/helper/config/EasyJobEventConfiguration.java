@@ -10,6 +10,9 @@ import org.springframework.context.annotation.DependsOn;
 
 import javax.sql.DataSource;
 
+/**
+ * 事件追踪配置，非必须配置项
+ */
 @Configuration
 public class EasyJobEventConfiguration {
 

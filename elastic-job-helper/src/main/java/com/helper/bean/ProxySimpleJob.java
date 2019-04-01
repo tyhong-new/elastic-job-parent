@@ -7,6 +7,9 @@ import org.apache.commons.logging.LogFactory;
 
 import java.lang.reflect.Method;
 
+/**
+ * SimpleJob的代理实现类
+ */
 public class ProxySimpleJob implements SimpleJob {
 
     private final Log logger = LogFactory.getLog(getClass());

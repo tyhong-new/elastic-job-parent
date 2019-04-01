@@ -6,12 +6,15 @@ import com.dangdang.ddframe.job.lite.api.strategy.JobShardingStrategy;
 import com.dangdang.ddframe.job.lite.config.LiteJobConfiguration;
 import com.dangdang.ddframe.job.lite.internal.config.ConfigurationService;
 import com.dangdang.ddframe.job.reg.base.CoordinatorRegistryCenter;
-import com.helper.annotation.SimpleJobCreator;
 import com.helper.util.ApplicationContextHolder;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+
+/**
+ * 本地job分配策略
+ */
 
 @Component
 public class LocalJobStrategy implements JobShardingStrategy {
@@ -37,6 +40,11 @@ public class LocalJobStrategy implements JobShardingStrategy {
         return new ConfigurationService(coordinatorRegistryCenter, jobName);
     }
 
+    /**
+     * 更新job的基本属性
+     * @param shardingTotalCount
+     * @param jobName
+     */
     private void updateShardingTotalCount(int shardingTotalCount, String jobName) {
         ConfigurationService configurationService = getConfigurationService(jobName);
         LiteJobConfiguration jobConfiguration = configurationService.load(true);

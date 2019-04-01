@@ -7,6 +7,9 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
+/**
+ * ApplicationContext工具类
+ */
 @Component
 public class ApplicationContextHolder implements ApplicationContextAware {
 
