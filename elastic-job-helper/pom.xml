@@ -45,7 +45,7 @@
     <build>
         <finalName>elastic-job-helper</finalName>
         <plugins>
-            <!-- <plugin>
+             <plugin>
                  <groupId>org.apache.maven.plugins</groupId>
                  <artifactId>maven-pmd-plugin</artifactId>
                  <version>3.10.0</version>
@@ -61,7 +61,7 @@
                          </goals>
                      </execution>
                  </executions>
-             </plugin>-->
+             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

@@ -32,7 +32,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 创建SimpleJobchedulersS，核心类
+ * 创建SimpleJobScheduler，核心类
  */
 @Component
 public class SimpleJobCreator implements ApplicationContextAware, InitializingBean {
@@ -92,7 +92,7 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
                 }
             }
         }
-        schedulers.forEach(e -> e.init());
+        schedulers.forEach(SpringJobScheduler::init);
     }
 
     private void processBean(String beanName, Class<?> targetType, JobEventRdbConfiguration jobEventRdbConfiguration, Set<Class<?>> nonAnnotatedClasses,
@@ -154,6 +154,7 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
 
     /**
      * 根据注解，创建job配置
+     *
      * @param name
      * @param easySimpleJob
      * @param localJob
@@ -167,7 +168,7 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
         // 定义SIMPLE类型配置
         SimpleJobConfiguration simpleJobConfig = new SimpleJobConfiguration(simpleCoreConfig, name);
         //处理localJob
-        String jobShardingStrategyClass = localJob == null ? StringUtils.isBlank(easySimpleJob.jobShardingStrategyClass())?null:easySimpleJob.jobShardingStrategyClass() : LocalJobStrategy.class.getCanonicalName();
+        String jobShardingStrategyClass = localJob == null ? StringUtils.isBlank(easySimpleJob.jobShardingStrategyClass()) ? null : easySimpleJob.jobShardingStrategyClass() : LocalJobStrategy.class.getCanonicalName();
         // 定义Lite作业根配置
         LiteJobConfiguration simpleJobRootConfig = LiteJobConfiguration.newBuilder(simpleJobConfig).jobShardingStrategyClass(easySimpleJob.jobShardingStrategyClass())
                 .maxTimeDiffSeconds(easySimpleJob.maxTimeDiffSeconds()).jobShardingStrategyClass(jobShardingStrategyClass)
@@ -178,6 +179,7 @@ public class SimpleJobCreator implements ApplicationContextAware, InitializingBe
 
     /**
      * 定义job的名字
+     *
      * @param jobName
      * @param beanName
      * @param method
