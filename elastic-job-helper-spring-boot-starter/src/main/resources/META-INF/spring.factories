@@ -1,0 +1,2 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.helper.starter.config.EasyJobAutoConfiguration
