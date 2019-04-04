@@ -2,3 +2,5 @@ elastic-job-helper/target/
 *.iml
 elastic-job-example/target/
 .idea
+elastic-job-helper-spring-boot-starter/target/
+elastic-job-starter-example/target/
