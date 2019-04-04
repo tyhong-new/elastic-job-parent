@@ -16,7 +16,7 @@ import java.util.*;
  * 本地job分配策略
  */
 
-@Component
+//@Component
 public class LocalJobStrategy implements JobShardingStrategy {
 
     @Override
