@@ -24,7 +24,7 @@ public class ZookeeperEasyConfig {
         zookeeperConfiguration.setDigest(ApplicationContextHolder.getStringProperty("easy.zoo.digest", ZOO_DIGEST));
         zookeeperConfiguration.setBaseSleepTimeMilliseconds(ApplicationContextHolder.getIntProperty("easy.zoo.baseSleepTimeMilliseconds", ZOO_BASE_SLEEP_TIME_MILLISECONDS));
         zookeeperConfiguration.setConnectionTimeoutMilliseconds(ApplicationContextHolder.getIntProperty("easy.zoo.connectionTimeoutMilliseconds", ZOO_CONNECTION_TIMEOUT_MILLISECONDS));
-        zookeeperConfiguration.setMaxRetries(ApplicationContextHolder.getIntProperty("easy.zoo.connectionTimeoutMilliseconds", ZOO_MAX_RETRIES));
+        zookeeperConfiguration.setMaxRetries(ApplicationContextHolder.getIntProperty("easy.zoo.maxRetries", ZOO_MAX_RETRIES));
         zookeeperConfiguration.setMaxSleepTimeMilliseconds(ApplicationContextHolder.getIntProperty("easy.zoo.maxSleepTimeMilliseconds", ZOO_MAX_SLEEP_TIME_MILLISECONDS));
         zookeeperConfiguration.setSessionTimeoutMilliseconds(ApplicationContextHolder.getIntProperty("easy.zoo.sessionTimeoutMilliseconds", ZOO_SESSION_TIMEOUT_MILLISECONDS));
         CoordinatorRegistryCenter regCenter = new ZookeeperRegistryCenter(zookeeperConfiguration);
